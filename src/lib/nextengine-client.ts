@@ -141,19 +141,44 @@ export class NextEngineClient {
    */
   async keepAlive(): Promise<{ success: boolean; refreshed: boolean; message: string }> {
     try {
+      console.log('🔄 Starting keepalive...')
       const result = await this.callApi('/api_v1_login_user/info')
       
       if (result.result === 'success') {
         return { 
           success: true, 
-          refreshed: false, 
+          refreshed: result.access_token ? true : false, // トークンが更新された場合
           message: 'Token is healthy' 
         }
       } else {
-        throw new Error(result.message || 'Unknown error')
+        // エラーレスポンスの詳細をログ出力
+        console.error('KeepAlive API error:', result)
+        throw new Error(result.message || `API Error: ${result.code}`)
       }
     } catch (error) {
       console.error('Keep alive failed:', error)
+      
+      // トークンリフレッシュを手動で試行
+      try {
+        const tokens = await this.getTokens()
+        if (tokens.refreshToken) {
+          console.log('🔄 Attempting manual token refresh...')
+          await this.refreshAccessToken(tokens.refreshToken)
+          
+          // リフレッシュ後に再試行
+          const retryResult = await this.callApi('/api_v1_login_user/info')
+          if (retryResult.result === 'success') {
+            return {
+              success: true,
+              refreshed: true,
+              message: 'Token refreshed and healthy'
+            }
+          }
+        }
+      } catch (refreshError) {
+        console.error('Token refresh failed:', refreshError)
+      }
+      
       return { 
         success: false, 
         refreshed: false, 
