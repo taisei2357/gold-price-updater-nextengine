@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
   try {
     console.log('Exchanging authorization code for tokens...')
     
-    const tokenResponse = await fetch('https://api.next-engine.org/api_v1_oauth2_token', {
+    const tokenResponse = await fetch('https://api.next-engine.org/api_v1_oauth2/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'

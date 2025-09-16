@@ -40,7 +40,7 @@ export class NextEngineClient {
    * refresh_tokenを使ってaccess_tokenを更新
    */
   private async refreshAccessToken(refreshToken: string): Promise<TokenPair> {
-    const response = await fetch('https://api.next-engine.org/api_v1_oauth2_token', {
+    const response = await fetch('https://api.next-engine.org/api_v1_oauth2/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
