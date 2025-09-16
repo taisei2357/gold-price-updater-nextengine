@@ -161,7 +161,7 @@ export class NextEngineClient {
       // トークンリフレッシュを手動で試行
       try {
         const tokens = await this.getTokens()
-        if (tokens.refreshToken) {
+        if (tokens && tokens.refreshToken) {
           console.log('🔄 Attempting manual token refresh...')
           await this.refreshAccessToken(tokens.refreshToken)
           
