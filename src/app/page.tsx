@@ -68,13 +68,18 @@ async function getSystemStatus() {
   }
 }
 
-export default async function HomePage({ searchParams }: { searchParams?: { [key: string]: string | undefined } }) {
+export default async function HomePage({ 
+  searchParams 
+}: { 
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }> 
+}) {
   const status = await getSystemStatus()
 
   // URLパラメータからエラー・成功メッセージを取得
-  const error = searchParams?.error
-  const connected = searchParams?.connected
-  const details = searchParams?.details
+  const params = await searchParams
+  const error = typeof params?.error === 'string' ? params.error : undefined
+  const connected = typeof params?.connected === 'string' ? params.connected : undefined
+  const details = typeof params?.details === 'string' ? params.details : undefined
 
   return (
     <main className="max-w-6xl mx-auto p-8">
