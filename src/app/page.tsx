@@ -49,12 +49,20 @@ export default async function HomePage() {
             {status?.hasToken ? '✅ 認証済み' : '❌ 未認証'}
           </div>
           {!status?.hasToken && (
-            <Link 
-              href="/api/nextengine/auth"
-              className="mt-2 inline-block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              認証開始
-            </Link>
+            <div className="mt-2 space-y-2">
+              <button 
+                onClick="setupInitialTokens()"
+                className="block w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
+              >
+                既存トークンをセットアップ
+              </button>
+              <Link 
+                href="/api/nextengine/auth"
+                className="block w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-center text-sm"
+              >
+                新規認証開始
+              </Link>
+            </div>
           )}
         </div>
 
@@ -164,6 +172,32 @@ export default async function HomePage() {
         <p>NextEngine価格更新システム v1.0</p>
         <p>キープアライブ: 12時間ごと | 価格更新: 平日10:00 JST</p>
       </div>
+
+      {/* JavaScript */}
+      <script dangerouslySetInnerHTML={{
+        __html: `
+          async function setupInitialTokens() {
+            try {
+              const response = await fetch('/api/nextengine/setup-tokens', {
+                method: 'POST',
+                headers: {
+                  'Authorization': 'Bearer ${process.env.CRON_SECRET || 'nextengine_secret_2024'}',
+                  'Content-Type': 'application/json'
+                }
+              });
+              const result = await response.json();
+              if (result.success) {
+                alert('✅ 既存トークンのセットアップが完了しました！\\nページを再読み込みします。');
+                window.location.reload();
+              } else {
+                alert('❌ セットアップ失敗: ' + result.message);
+              }
+            } catch (error) {
+              alert('❌ エラー: ' + error.message);
+            }
+          }
+        `
+      }} />
     </main>
   )
 }
