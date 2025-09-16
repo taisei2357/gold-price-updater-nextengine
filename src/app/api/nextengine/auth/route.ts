@@ -1,27 +1,29 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 /**
- * NextEngine OAuth認証開始
+ * NextEngine 認証開始 - 正しいエンドポイント使用
+ * uid/state を取得するため /users/sign_in/ を使用
  */
 export async function GET(request: NextRequest) {
-  // NextEngineの必須パラメータを環境変数から取得
   const clientId = process.env.NE_CLIENT_ID!
-  const baseUrl = process.env.BASE_URL!
-  const state = process.env.NE_STATE || 'nextengine_auth_state'
+  const appUrl = process.env.BASE_URL!
   
-  if (!clientId || !baseUrl) {
+  if (!clientId || !appUrl) {
     return Response.json({
       error: 'Missing NextEngine configuration',
       message: 'NE_CLIENT_ID and BASE_URL environment variables are required'
     }, { status: 500 })
   }
   
-  // 標準的なOAuth2 authorize エンドポイント
-  const authUrl = new URL('https://base.next-engine.org/apps/oauth2/authorize')
+  // NextEngine正式認証エンドポイント
+  const authUrl = new URL('https://base.next-engine.org/users/sign_in/')
   authUrl.searchParams.set('client_id', clientId)
-  authUrl.searchParams.set('redirect_uri', `${baseUrl}/api/nextengine/callback`)
-  authUrl.searchParams.set('response_type', 'code')
-  authUrl.searchParams.set('state', state)
+  authUrl.searchParams.set('redirect_uri', `${appUrl}/api/nextengine/callback`)
   
-  return Response.redirect(authUrl.toString())
+  console.log('🚀 Starting NextEngine auth with:', {
+    clientId,
+    redirectUri: `${appUrl}/api/nextengine/callback`
+  })
+  
+  return NextResponse.redirect(authUrl.toString())
 }

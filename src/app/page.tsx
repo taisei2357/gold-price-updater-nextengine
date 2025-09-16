@@ -68,12 +68,32 @@ async function getSystemStatus() {
   }
 }
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams?: { [key: string]: string | undefined } }) {
   const status = await getSystemStatus()
+
+  // URLパラメータからエラー・成功メッセージを取得
+  const error = searchParams?.error
+  const connected = searchParams?.connected
+  const details = searchParams?.details
 
   return (
     <main className="max-w-6xl mx-auto p-8">
       <h1 className="text-3xl font-bold mb-8">NextEngine 価格更新システム</h1>
+      
+      {/* エラー・成功メッセージ */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+          <strong className="font-bold">認証エラー: </strong>
+          <span className="block sm:inline">{error}</span>
+          {details && <div className="text-sm mt-1">詳細: {decodeURIComponent(details)}</div>}
+        </div>
+      )}
+      {connected && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+          <strong className="font-bold">認証成功! </strong>
+          <span className="block sm:inline">NextEngineトークンが正常に保存されました。</span>
+        </div>
+      )}
       
       {/* システム状態 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
