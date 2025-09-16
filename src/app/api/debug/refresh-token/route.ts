@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     })
 
     // 直接トークンリフレッシュを実行
-    const response = await fetch('https://api.next-engine.org/api_v1_oauth2_token', {
+    const response = await fetch('https://api.next-engine.org/api_v1_oauth2/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
