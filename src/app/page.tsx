@@ -3,34 +3,68 @@ import { db } from '@/lib/db'
 
 async function getSystemStatus() {
   try {
+    console.log('🔍 Getting system status...')
+
     // 最新のキープアライブログ
-    const latestKeepAlive = await db.keepAliveLog.findFirst({
-      orderBy: { createdAt: 'desc' }
-    })
+    let latestKeepAlive = null
+    try {
+      latestKeepAlive = await db.keepAliveLog.findFirst({
+        orderBy: { createdAt: 'desc' }
+      })
+    } catch (keepAliveError) {
+      console.error('KeepAlive query failed:', keepAliveError)
+    }
 
     // 最新の実行ログ
-    const latestExecution = await db.executionLog.findFirst({
-      orderBy: { createdAt: 'desc' }
-    })
+    let latestExecution = null
+    try {
+      latestExecution = await db.executionLog.findFirst({
+        orderBy: { createdAt: 'desc' }
+      })
+    } catch (executionError) {
+      console.error('Execution query failed:', executionError)
+    }
 
     // トークンの存在確認
-    const tokenExists = await db.nextEngineToken.findUnique({
-      where: { id: 1 }
-    })
+    let tokenExists = null
+    try {
+      tokenExists = await db.nextEngineToken.findFirst({
+        where: { id: 1 }
+      })
+      console.log('Token query result:', !!tokenExists)
+    } catch (tokenError) {
+      console.error('Token query failed:', tokenError)
+    }
 
     // 最新の価格履歴
-    const latestPrice = await db.priceHistory.findFirst({
-      orderBy: { date: 'desc' }
-    })
+    let latestPrice = null
+    try {
+      latestPrice = await db.priceHistory.findFirst({
+        orderBy: { date: 'desc' }
+      })
+    } catch (priceError) {
+      console.error('Price query failed:', priceError)
+    }
 
     return {
       keepAlive: latestKeepAlive,
       execution: latestExecution,
       hasToken: !!tokenExists,
-      latestPrice
+      latestPrice,
+      debug: {
+        tokenFound: !!tokenExists,
+        tokenId: tokenExists?.id
+      }
     }
   } catch (error) {
-    return null
+    console.error('System status failed:', error)
+    return {
+      keepAlive: null,
+      execution: null,
+      hasToken: false,
+      latestPrice: null,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
   }
 }
 
@@ -133,7 +167,7 @@ export default async function HomePage() {
       {/* 機能メニュー */}
       <div className="bg-white p-6 rounded-lg shadow mb-8">
         <h2 className="text-xl font-semibold mb-4">システム操作</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Link 
             href="/api/nextengine/keepalive"
             className="bg-blue-600 text-white px-6 py-3 rounded text-center hover:bg-blue-700 block"
@@ -151,6 +185,12 @@ export default async function HomePage() {
             className="bg-gray-600 text-white px-6 py-3 rounded text-center hover:bg-gray-700 block"
           >
             システムヘルスチェック
+          </Link>
+          <Link 
+            href="/api/debug/db-status"
+            className="bg-orange-600 text-white px-6 py-3 rounded text-center hover:bg-orange-700 block"
+          >
+            データベース状態確認
           </Link>
         </div>
       </div>
