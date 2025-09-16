@@ -125,17 +125,6 @@ export class NextEngineClient {
           })
         }
 
-        // access_token関連エラーの場合（複数のエラーコードをチェック）
-        const isTokenError = result.code === '002004' || 
-                             result.message?.includes('access_token') ||
-                             result.message?.includes('が不正です')
-        
-        if (isTokenError && attempt < retries - 1) {
-          console.log('Access token invalid, refreshing...', result.code, result.message)
-          await this.refreshAccessToken(currentTokens.refreshToken)
-          continue // 再試行
-        }
-
         return result
 
       } catch (error) {
@@ -169,26 +158,8 @@ export class NextEngineClient {
     } catch (error) {
       console.error('Keep alive failed:', error)
       
-      // トークンリフレッシュを手動で試行
-      try {
-        const tokens = await this.getTokens()
-        if (tokens && tokens.refreshToken) {
-          console.log('🔄 Attempting manual token refresh...')
-          await this.refreshAccessToken(tokens.refreshToken)
-          
-          // リフレッシュ後に再試行
-          const retryResult = await this.callApi('/api_v1_login_user/info')
-          if (retryResult.result === 'success') {
-            return {
-              success: true,
-              refreshed: true,
-              message: 'Token refreshed and healthy'
-            }
-          }
-        }
-      } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError)
-      }
+      // NextEngineは自動的にトークンを更新するので、
+      // 単純にエラーとして扱う
       
       return { 
         success: false, 

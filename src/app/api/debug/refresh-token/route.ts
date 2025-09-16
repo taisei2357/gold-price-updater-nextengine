@@ -28,19 +28,20 @@ export async function POST(request: NextRequest) {
       refreshTokenLength: currentToken.refreshToken?.length
     })
 
-    // 直接トークンリフレッシュを実行
-    const response = await fetch('https://api.next-engine.org/api_v1_oauth2/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
-        client_id: process.env.NE_CLIENT_ID!,
-        client_secret: process.env.NE_CLIENT_SECRET!,
-        refresh_token: currentToken.refreshToken
+    // NextEngineのAPI呼び出しでトークンが自動更新されるかテスト
+    const client = new NextEngineClient()
+    const testResult = await client.callApi('/api_v1_login_user/info')
+    
+    if (testResult.result === 'success') {
+      return Response.json({
+        success: true,
+        message: 'Tokens are working fine',
+        testResult
       })
-    })
+    }
+    
+    // エラーの場合は詳細を返す
+    const response = { ok: false, status: 400, statusText: 'Token test failed' }
 
     console.log('Refresh response status:', response.status)
     
