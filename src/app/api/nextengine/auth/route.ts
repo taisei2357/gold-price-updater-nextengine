@@ -6,24 +6,22 @@ import { NextRequest } from 'next/server'
 export async function GET(request: NextRequest) {
   // NextEngineの必須パラメータを環境変数から取得
   const clientId = process.env.NE_CLIENT_ID!
-  const uid = process.env.NE_UID!
-  const appId = process.env.NE_APP_ID!
-  // ランダムなstateを生成（セキュリティ向上）
-  const state = crypto.randomUUID().replace(/-/g, '').substring(0, 32)
+  const baseUrl = process.env.BASE_URL!
+  const state = process.env.NE_STATE || 'nextengine_auth_state'
   
-  if (!uid || !appId) {
+  if (!clientId || !baseUrl) {
     return Response.json({
       error: 'Missing NextEngine configuration',
-      message: 'NE_UID and NE_APP_ID environment variables are required'
+      message: 'NE_CLIENT_ID and BASE_URL environment variables are required'
     }, { status: 500 })
   }
   
-  // NextEngine専用の認証URL（正確なパス）
-  const authUrl = new URL('https://base.next-engine.org/Userjyouhou/app_search')
+  // 標準的なOAuth2 authorize エンドポイント
+  const authUrl = new URL('https://base.next-engine.org/apps/oauth2/authorize')
   authUrl.searchParams.set('client_id', clientId)
-  authUrl.searchParams.set('uid', uid)
+  authUrl.searchParams.set('redirect_uri', `${baseUrl}/api/nextengine/callback`)
+  authUrl.searchParams.set('response_type', 'code')
   authUrl.searchParams.set('state', state)
-  authUrl.searchParams.set('id', appId)
   
   return Response.redirect(authUrl.toString())
 }

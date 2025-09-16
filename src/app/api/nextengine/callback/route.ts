@@ -41,11 +41,15 @@ export async function GET(request: NextRequest) {
     }, { status: 400 })
   }
 
-  // state検証（存在確認のみ、値は問わない）
-  if (!state) {
-    console.warn('State parameter missing, but proceeding...')
-  } else {
-    console.log(`State received: ${state}`)
+  // state検証（セキュリティ上重要）
+  const expectedState = process.env.NE_STATE || 'nextengine_auth_state'
+  if (state !== expectedState) {
+    return Response.json({ 
+      success: false, 
+      error: 'Invalid state parameter',
+      received: state,
+      expected: expectedState
+    }, { status: 400 })
   }
 
   // 認可コードをアクセストークンに交換
