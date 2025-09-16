@@ -209,4 +209,48 @@ export class NextEngineClient {
       data: csvData
     })
   }
+
+  /**
+   * リフレッシュトークンを使用してアクセストークンを更新
+   */
+  async refreshAccessToken(refreshToken: string): Promise<void> {
+    try {
+      console.log('🔄 Refreshing access token...')
+      
+      const response = await fetch('https://api.next-engine.org/api_v1_oauth2_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          client_id: process.env.NE_CLIENT_ID!,
+          client_secret: process.env.NE_CLIENT_SECRET!,
+          refresh_token: refreshToken
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Token refresh failed: ${response.status} ${response.statusText}`)
+      }
+
+      const tokenData = await response.json()
+      
+      if (!tokenData.access_token || !tokenData.refresh_token) {
+        throw new Error('Invalid token response from refresh')
+      }
+
+      // 新しいトークンをデータベースに保存
+      await this.saveTokens({
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token
+      })
+
+      console.log('✅ Access token refreshed successfully')
+
+    } catch (error) {
+      console.error('❌ Token refresh failed:', error)
+      throw error
+    }
+  }
 }
