@@ -15,14 +15,20 @@ export class PriceService {
       
       const html = await response.text()
       
-      // HTMLパース（簡易実装 - 実際の田中貴金属サイトの構造に合わせて調整が必要）
-      const goldMatch = html.match(/GOLD.*?([0-9,]+\.\d+).*?([+-][0-9,]+\.\d+)/i)
-      const platinumMatch = html.match(/PLATINUM.*?([0-9,]+\.\d+).*?([+-][0-9,]+\.\d+)/i)
+      // HTMLパース - 田中貴金属の実際の構造に対応
+      // "19,230 yen" のような形式を抽出
+      const goldMatch = html.match(/<tr class="gold">[\s\S]*?<td class="retail_tax">([0-9,]+) yen<\/td>/i)
+      const platinumMatch = html.match(/<tr class="pt">[\s\S]*?<td class="retail_tax">([0-9,]+) yen<\/td>/i)
+      
+      console.log('Price extraction:', {
+        goldMatch: goldMatch ? goldMatch[1] : 'not found',
+        platinumMatch: platinumMatch ? platinumMatch[1] : 'not found'
+      })
       
       if (!goldMatch) throw new Error('金価格が見つかりません')
       
-      const goldPrice = parseFloat(goldMatch[1].replace(',', ''))
-      const platinumPrice = platinumMatch ? parseFloat(platinumMatch[1].replace(',', '')) : 0
+      const goldPrice = parseFloat(goldMatch[1].replace(/,/g, ''))
+      const platinumPrice = platinumMatch ? parseFloat(platinumMatch[1].replace(/,/g, '')) : 0
       
       return { gold: goldPrice, platinum: platinumPrice }
       
