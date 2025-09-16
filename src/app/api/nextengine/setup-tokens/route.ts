@@ -5,12 +5,18 @@ import { db } from '@/lib/db'
  * 既存トークンの初期セットアップ（一回限り実行）
  */
 export async function POST(request: NextRequest) {
-  // セキュリティチェック
-  const authHeader = request.headers.get('authorization')
-  const expectedAuth = process.env.CRON_SECRET
+  // フォーム送信の場合は認証チェックをスキップ
+  const contentType = request.headers.get('content-type')
+  const isFormSubmission = contentType?.includes('application/x-www-form-urlencoded')
   
-  if (!expectedAuth || authHeader !== `Bearer ${expectedAuth}`) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isFormSubmission) {
+    // API呼び出しの場合はセキュリティチェック
+    const authHeader = request.headers.get('authorization')
+    const expectedAuth = process.env.CRON_SECRET
+    
+    if (!expectedAuth || authHeader !== `Bearer ${expectedAuth}`) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+    }
   }
 
   const initialAccessToken = process.env.INITIAL_ACCESS_TOKEN
@@ -53,6 +59,11 @@ export async function POST(request: NextRequest) {
     })
 
     console.log('✅ Initial tokens saved to database')
+
+    if (isFormSubmission) {
+      // フォーム送信の場合はリダイレクト
+      return Response.redirect(new URL('/', request.url))
+    }
 
     return Response.json({
       success: true,
