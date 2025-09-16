@@ -32,27 +32,28 @@ export async function POST(request: NextRequest) {
       );
     `)
     
-    // PriceHistoryテーブル作成
+    // PriceHistoryテーブル作成（Prismaスキーマと一致）
     await client.query(`
-      CREATE TABLE IF NOT EXISTS price_histories (
+      CREATE TABLE IF NOT EXISTS price_history (
         id SERIAL PRIMARY KEY,
-        date DATE UNIQUE NOT NULL,
+        date TIMESTAMP UNIQUE NOT NULL,
         gold_price DECIMAL(10,2) NOT NULL,
-        platinum_price DECIMAL(10,2) NOT NULL,
+        platinum_price DECIMAL(10,2),
+        source TEXT DEFAULT 'tanaka',
         created_at TIMESTAMP DEFAULT NOW()
       );
     `)
     
-    // ExecutionLogテーブル作成
+    // ExecutionLogテーブル作成（Prismaスキーマと一致）
     await client.query(`
       CREATE TABLE IF NOT EXISTS execution_logs (
         id SERIAL PRIMARY KEY,
-        date DATE UNIQUE NOT NULL,
+        date TIMESTAMP UNIQUE NOT NULL,
         status TEXT NOT NULL,
         updated_products INTEGER DEFAULT 0,
         gold_ratio DECIMAL(10,6),
         platinum_ratio DECIMAL(10,6),
-        execution_reason TEXT,
+        execution_reason TEXT NOT NULL,
         error_message TEXT,
         skipped_reason TEXT,
         duration_seconds DECIMAL(10,3),
