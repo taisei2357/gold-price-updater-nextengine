@@ -50,20 +50,28 @@ export default async function HomePage() {
           </div>
           {!status?.hasToken && (
             <div className="mt-2 space-y-2">
+              <form action="/api/db/migrate" method="POST" style={{ marginBottom: '8px' }}>
+                <button 
+                  type="submit"
+                  className="block w-full bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 text-sm"
+                >
+                  1. データベース初期化
+                </button>
+              </form>
               <form action="/api/nextengine/setup-tokens" method="POST">
                 <input type="hidden" name="_method" value="POST" />
                 <button 
                   type="submit"
                   className="block w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
                 >
-                  既存トークンをセットアップ
+                  2. 既存トークンをセットアップ
                 </button>
               </form>
               <Link 
                 href="/api/nextengine/auth"
                 className="block w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-center text-sm"
               >
-                新規認証開始
+                3. 新規認証開始（代替）
               </Link>
             </div>
           )}
