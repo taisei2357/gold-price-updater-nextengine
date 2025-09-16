@@ -18,12 +18,12 @@ export async function GET(request: NextRequest) {
     }, { status: 500 })
   }
   
-  // NextEngine専用の認証URL
+  // NextEngine専用の認証URL（正確なパス）
   const authUrl = new URL('https://base.next-engine.org/Userjyouhou/app_search')
   authUrl.searchParams.set('client_id', clientId)
   authUrl.searchParams.set('uid', uid)
-  authUrl.searchParams.set('id', appId)
   authUrl.searchParams.set('state', state)
+  authUrl.searchParams.set('id', appId)
   
   return Response.redirect(authUrl.toString())
 }
