@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/nextengine/keepalive",
+      "schedule": "0 */12 * * *"
+    },
+    {
+      "path": "/api/nextengine/price-update",
+      "schedule": "0 1 * * 1-5"
+    }
+  ]
+}

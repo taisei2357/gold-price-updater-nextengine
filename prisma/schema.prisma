@@ -1,0 +1,61 @@
+// NextEngine価格更新システム - Prisma Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// NextEngine認証トークン管理
+model NextEngineToken {
+  id           Int      @id @default(1)
+  accessToken  String   @map("access_token")
+  refreshToken String   @map("refresh_token")
+  clientId     String?  @map("client_id")
+  clientSecret String?  @map("client_secret")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("nextengine_tokens")
+}
+
+// 金・プラチナ価格履歴
+model PriceHistory {
+  id            Int      @id @default(autoincrement())
+  date          DateTime @unique
+  goldPrice     Float    @map("gold_price")
+  platinumPrice Float?   @map("platinum_price")
+  source        String   @default("tanaka") // 田中貴金属
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("price_history")
+}
+
+// 価格更新実行ログ
+model ExecutionLog {
+  id               Int      @id @default(autoincrement())
+  date             DateTime @unique
+  status           String   // SUCCESS, FAILED, SKIPPED
+  updatedProducts  Int      @default(0) @map("updated_products")
+  goldRatio        Float?   @map("gold_ratio")
+  platinumRatio    Float?   @map("platinum_ratio")
+  executionReason  String   @map("execution_reason")
+  errorMessage     String?  @map("error_message")
+  skippedReason    String?  @map("skipped_reason")
+  durationSeconds  Float?   @map("duration_seconds")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("execution_logs")
+}
+
+// キープアライブログ
+model KeepAliveLog {
+  id        Int      @id @default(autoincrement())
+  status    String   // SUCCESS, FAILED
+  message   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("keepalive_logs")
+}
