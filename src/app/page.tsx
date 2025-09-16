@@ -167,7 +167,7 @@ export default async function HomePage() {
       {/* 機能メニュー */}
       <div className="bg-white p-6 rounded-lg shadow mb-8">
         <h2 className="text-xl font-semibold mb-4">システム操作</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <Link 
             href="/api/nextengine/keepalive"
             className="bg-blue-600 text-white px-6 py-3 rounded text-center hover:bg-blue-700 block"
@@ -186,12 +186,22 @@ export default async function HomePage() {
           >
             システムヘルスチェック
           </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link 
             href="/api/debug/db-status"
             className="bg-orange-600 text-white px-6 py-3 rounded text-center hover:bg-orange-700 block"
           >
             データベース状態確認
           </Link>
+          <form action="/api/debug/refresh-token" method="POST">
+            <button 
+              type="submit"
+              className="w-full bg-red-600 text-white px-6 py-3 rounded hover:bg-red-700"
+            >
+              手動トークンリフレッシュ
+            </button>
+          </form>
         </div>
       </div>
 
