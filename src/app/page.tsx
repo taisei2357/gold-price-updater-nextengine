@@ -82,33 +82,24 @@ export default async function HomePage() {
           <div className={`text-2xl font-bold ${status?.hasToken ? 'text-green-600' : 'text-red-600'}`}>
             {status?.hasToken ? '✅ 認証済み' : '❌ 未認証'}
           </div>
-          {!status?.hasToken && (
-            <div className="mt-2 space-y-2">
-              <form action="/api/db/migrate" method="POST" style={{ marginBottom: '8px' }}>
-                <button 
-                  type="submit"
-                  className="block w-full bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 text-sm"
-                >
-                  1. データベース初期化
-                </button>
-              </form>
-              <form action="/api/nextengine/setup-tokens" method="POST">
-                <input type="hidden" name="_method" value="POST" />
-                <button 
-                  type="submit"
-                  className="block w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm"
-                >
-                  2. 既存トークンをセットアップ
-                </button>
-              </form>
-              <Link 
-                href="/api/nextengine/auth"
-                className="block w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-center text-sm"
-              >
-                3. 新規認証開始（代替）
-              </Link>
+          <div className="mt-2 space-y-2">
+            <div className="bg-red-50 border border-red-200 rounded p-3 mb-3">
+              <p className="text-red-800 text-sm font-semibold">⚠️ 重要: すべてのトークンが期限切れです</p>
+              <p className="text-red-700 text-sm">NextEngineの開発者コンソールで新しいトークンを取得してください</p>
             </div>
-          )}
+            <Link 
+              href="/api/nextengine/auth"
+              className="block w-full bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-center font-semibold"
+            >
+              🚨 NextEngine再認証が必要
+            </Link>
+            <div className="text-xs text-gray-600 mt-2 space-y-1">
+              <p>手順:</p>
+              <p>1. 上のボタンをクリックしてNextEngine認証開始</p>
+              <p>2. NextEngineにログインして認証を完了</p>
+              <p>3. システムが自動的にトークンを保存</p>
+            </div>
+          </div>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow">
