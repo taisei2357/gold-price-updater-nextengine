@@ -110,6 +110,13 @@ export class NextEngineClient {
 
         const result: NextEngineApiResponse = await response.json()
 
+        // レスポンスの詳細をログ出力
+        console.log('NextEngine API response:', {
+          result: result.result,
+          code: result.code,
+          message: result.message
+        })
+
         // 新しいトークンがあれば保存（ローリング更新）
         if (result.access_token && result.refresh_token) {
           await this.saveTokens({
@@ -118,9 +125,13 @@ export class NextEngineClient {
           })
         }
 
-        // access_token期限切れエラーの場合
-        if (result.code === '002004' && attempt < retries - 1) {
-          console.log('Access token expired, refreshing...')
+        // access_token関連エラーの場合（複数のエラーコードをチェック）
+        const isTokenError = result.code === '002004' || 
+                             result.message?.includes('access_token') ||
+                             result.message?.includes('が不正です')
+        
+        if (isTokenError && attempt < retries - 1) {
+          console.log('Access token invalid, refreshing...', result.code, result.message)
           await this.refreshAccessToken(currentTokens.refreshToken)
           continue // 再試行
         }
