@@ -24,6 +24,15 @@ export async function GET(request: NextRequest) {
   try {
     console.log('🚀 NextEngine 価格更新開始')
 
+    // キープアライブ実行（トークン維持）
+    try {
+      console.log('🔄 キープアライブ実行中...')
+      await client.keepAlive()
+      console.log('✅ キープアライブ完了')
+    } catch (keepAliveError) {
+      console.warn('⚠️ キープアライブエラー:', keepAliveError)
+    }
+
     // 営業日チェック
     if (!priceService.isBusinessDay()) {
       const today = new Date().toLocaleDateString('ja-JP')
