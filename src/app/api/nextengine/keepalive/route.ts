@@ -7,11 +7,13 @@ import { db } from '@/lib/db'
  * 12時間ごとのVercel Cronで実行
  */
 export async function GET(request: NextRequest) {
-  // CRON認証（オプション）
+  // CRON認証（Cronジョブからの呼び出しのみ）
+  const cronHeader = request.headers.get('x-vercel-cron')
   const authHeader = request.headers.get('authorization')
   const expectedAuth = process.env.CRON_SECRET
   
-  if (expectedAuth && authHeader !== `Bearer ${expectedAuth}`) {
+  // Cronジョブからの場合のみ認証チェック
+  if (cronHeader && expectedAuth && authHeader !== `Bearer ${expectedAuth}`) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
