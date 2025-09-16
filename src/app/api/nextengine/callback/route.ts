@@ -41,6 +41,13 @@ export async function GET(request: NextRequest) {
     }, { status: 400 })
   }
 
+  // state検証（存在確認のみ、値は問わない）
+  if (!state) {
+    console.warn('State parameter missing, but proceeding...')
+  } else {
+    console.log(`State received: ${state}`)
+  }
+
   // 認可コードをアクセストークンに交換
   try {
     console.log('Exchanging authorization code for tokens...')

@@ -8,7 +8,8 @@ export async function GET(request: NextRequest) {
   const clientId = process.env.NE_CLIENT_ID!
   const uid = process.env.NE_UID!
   const appId = process.env.NE_APP_ID!
-  const state = process.env.NE_STATE || 'nextengine_auth_state'
+  // ランダムなstateを生成（セキュリティ向上）
+  const state = crypto.randomUUID().replace(/-/g, '').substring(0, 32)
   
   if (!uid || !appId) {
     return Response.json({
