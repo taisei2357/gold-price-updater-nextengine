@@ -1,9 +1,9 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 /**
- * NextEngine OAuth認証コールバック
- * トークンをDBに保存
+ * NextEngine 認証コールバック - 正しいエンドポイント使用
+ * uid/state を受け取り /api_neauth でトークン取得
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -17,56 +17,45 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  const code = searchParams.get('code')
+  const uid = searchParams.get('uid')
   const state = searchParams.get('state')
   const error = searchParams.get('error')
 
+  console.log('📥 NextEngine callback received:', {
+    hasUid: !!uid,
+    hasState: !!state,
+    hasError: !!error,
+    uid: uid?.substring(0, 10) + '...',
+    state: state?.substring(0, 10) + '...'
+  })
+
   if (error) {
-    return Response.json({ 
-      success: false, 
-      error: `OAuth Error: ${error}` 
-    }, { status: 400 })
+    console.error('❌ OAuth error:', error)
+    return NextResponse.redirect(`${process.env.BASE_URL}/?error=oauth_${error}`)
   }
 
-  if (!code) {
-    return Response.json({ 
-      success: false, 
-      error: 'Missing authorization code in callback',
-      received: {
-        code: !!code,
-        state: !!state,
-        uid: !!searchParams.get('uid'),
-        id: !!searchParams.get('id')
-      }
-    }, { status: 400 })
+  if (!uid || !state) {
+    console.error('❌ Missing uid or state')
+    return NextResponse.redirect(`${process.env.BASE_URL}/?error=missing_uid_state`)
   }
 
-  // state検証（セキュリティ上重要）
-  const expectedState = process.env.NE_STATE || 'nextengine_auth_state'
-  if (state !== expectedState) {
-    return Response.json({ 
-      success: false, 
-      error: 'Invalid state parameter',
-      received: state,
-      expected: expectedState
-    }, { status: 400 })
-  }
-
-  // 認可コードをアクセストークンに交換
   try {
-    console.log('Exchanging authorization code for tokens...')
+    console.log('🔄 Exchanging uid/state for tokens...')
     
-    const tokenResponse = await fetch('https://api.next-engine.org/api_v1_oauth2/token', {
+    const clientId = process.env.NE_CLIENT_ID!
+    const clientSecret = process.env.NE_CLIENT_SECRET!
+    
+    // NextEngine正式トークン取得エンドポイント
+    const tokenResponse = await fetch('https://api.next-engine.org/api_neauth', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       },
       body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: process.env.NE_CLIENT_ID!,
-        client_secret: process.env.NE_CLIENT_SECRET!,
-        code: code,
-        redirect_uri: `${process.env.BASE_URL}/api/nextengine/callback`
+        uid,
+        state,
+        client_id: clientId,
+        client_secret: clientSecret
       })
     })
 
@@ -76,43 +65,46 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json()
     
-    if (!tokenData.access_token || !tokenData.refresh_token) {
-      throw new Error('Invalid token response')
+    console.log('🎯 Token response:', {
+      result: tokenData.result,
+      hasAccessToken: !!tokenData.access_token,
+      hasRefreshToken: !!tokenData.refresh_token,
+      companyId: tokenData.company_ne_id
+    })
+    
+    if (tokenData.result !== 'success') {
+      throw new Error(`NextEngine auth failed: ${tokenData.code} - ${tokenData.message}`)
     }
 
-    const accessToken = tokenData.access_token
-    const refreshToken = tokenData.refresh_token
-
-    console.log('Tokens received successfully, saving to database...')
+    if (!tokenData.access_token || !tokenData.refresh_token) {
+      throw new Error('Missing tokens in response')
+    }
 
     // トークンをDBに保存
     await db.nextEngineToken.upsert({
       where: { id: 1 },
       create: {
         id: 1,
-        accessToken,
-        refreshToken,
-        clientId: process.env.NE_CLIENT_ID,
-        clientSecret: process.env.NE_CLIENT_SECRET
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        clientId: clientId,
+        clientSecret: clientSecret
       },
       update: {
-        accessToken,
-        refreshToken
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        clientId: clientId,
+        clientSecret: clientSecret
       }
     })
 
-    return Response.json({
-      success: true,
-      message: 'Tokens saved successfully',
-      timestamp: new Date().toISOString()
-    })
+    console.log('✅ Tokens saved successfully to database')
+
+    return NextResponse.redirect(`${process.env.BASE_URL}/?connected=1`)
 
   } catch (error) {
-    console.error('Failed to exchange tokens or save to database:', error)
-    return Response.json({
-      success: false,
-      error: 'Failed to process OAuth callback',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    console.error('❌ Token exchange failed:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.redirect(`${process.env.BASE_URL}/?error=token_exchange&details=${encodeURIComponent(errorMessage)}`)
   }
 }
