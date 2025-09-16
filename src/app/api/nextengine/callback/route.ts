@@ -96,20 +96,12 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString()
     })
 
-  } catch (tokenError) {
-    console.error('Failed to exchange tokens:', tokenError)
-    return Response.json({
-      success: false,
-      error: 'Failed to exchange authorization code for tokens',
-      details: tokenError instanceof Error ? tokenError.message : 'Unknown error'
-    }, { status: 500 })
-  }
-
   } catch (error) {
-    console.error('Failed to save tokens:', error)
+    console.error('Failed to exchange tokens or save to database:', error)
     return Response.json({
       success: false,
-      error: 'Failed to save tokens to database'
+      error: 'Failed to process OAuth callback',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
 }
