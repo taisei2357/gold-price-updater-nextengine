@@ -32,67 +32,13 @@ export async function POST(request: NextRequest) {
     const client = new NextEngineClient()
     const testResult = await client.callApi('/api_v1_login_user/info')
     
-    if (testResult.result === 'success') {
-      return Response.json({
-        success: true,
-        message: 'Tokens are working fine',
-        testResult
-      })
-    }
-    
-    // エラーの場合は詳細を返す
-    const response = { ok: false, status: 400, statusText: 'Token test failed' }
-
-    console.log('Refresh response status:', response.status)
-    
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Refresh failed:', errorText)
-      return Response.json({
-        success: false,
-        error: `Token refresh failed: ${response.status} ${response.statusText}`,
-        details: errorText
-      }, { status: 500 })
-    }
-
-    const tokenData = await response.json()
-    console.log('New token data:', {
-      hasAccessToken: !!tokenData.access_token,
-      hasRefreshToken: !!tokenData.refresh_token,
-      result: tokenData.result,
-      message: tokenData.message
-    })
-
-    if (!tokenData.access_token || !tokenData.refresh_token) {
-      return Response.json({
-        success: false,
-        error: 'Invalid token response from refresh',
-        tokenData
-      }, { status: 500 })
-    }
-
-    // 新しいトークンをデータベースに保存
-    await db.nextEngineToken.update({
-      where: { id: 1 },
-      data: {
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token
-      }
-    })
-
-    console.log('✅ Tokens updated successfully')
-
-    // NextEngineClientでテスト
-    const client = new NextEngineClient()
-    const testResult = await client.keepAlive()
-
     return Response.json({
-      success: true,
-      message: 'Token refreshed successfully',
-      refreshResult: {
-        oldTokenLength: currentToken.accessToken.length,
-        newTokenLength: tokenData.access_token.length,
-        testResult
+      success: testResult.result === 'success',
+      message: testResult.result === 'success' ? 'Tokens are working' : 'Token test failed',
+      testResult,
+      currentTokenInfo: {
+        accessTokenLength: currentToken.accessToken.length,
+        refreshTokenLength: currentToken.refreshToken.length
       },
       timestamp: new Date().toISOString()
     })
