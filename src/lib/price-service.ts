@@ -3,7 +3,7 @@ import type { PriceHistoryData } from '@/types/nextengine'
 
 export class PriceService {
   /**
-   * 田中貴金属から現在価格を取得
+   * 田中貴金属から現在の金・プラチナ価格を取得
    */
   async fetchCurrentPrices(): Promise<{ gold: number; platinum: number }> {
     try {
@@ -137,10 +137,23 @@ export class PriceService {
    * 商品名フィルタリング
    */
   shouldUpdateProduct(productName: string): boolean {
-    // 「【新品】」または「【新品仕上げ】」で始まり、「K18」を含む商品
-    const startsWithNewOrRecon = productName.startsWith('【新品】') || productName.startsWith('【新品仕上げ】')
+    // 「【新品】」または「【新品仕上げ中古】」で始まり、「K18」または「Pt」を含む商品
+    const startsWithNewOrRecon = productName.startsWith('【新品】') || productName.startsWith('【新品仕上げ中古】')
     const containsK18 = productName.includes('K18')
+    const containsPt = productName.includes('Pt')
     
-    return startsWithNewOrRecon && containsK18
+    return startsWithNewOrRecon && (containsK18 || containsPt)
+  }
+
+  /**
+   * 商品の金属種別を判定
+   */
+  getMetalType(productName: string): 'gold' | 'platinum' | null {
+    if (!this.shouldUpdateProduct(productName)) return null
+    
+    if (productName.includes('Pt')) return 'platinum'
+    if (productName.includes('K18')) return 'gold'
+    
+    return null
   }
 }

@@ -28,6 +28,7 @@ export interface PriceUpdateResult {
   productName: string
   oldPrice: number
   newPrice: number
+  metalType?: 'gold' | 'platinum'
   success: boolean
   error?: string
 }
