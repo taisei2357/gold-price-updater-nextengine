@@ -26,6 +26,27 @@ export async function GET(request: NextRequest) {
   try {
     console.log('🚀 NextEngine 価格更新開始')
 
+    // 価格更新停止チェック
+    const priceUpdateEnabled = process.env.PRICE_UPDATE_ENABLED !== 'false'
+    if (!priceUpdateEnabled) {
+      const message = '価格更新は現在停止中です (PRICE_UPDATE_ENABLED=false)'
+      
+      await logExecution({
+        status: 'SKIPPED',
+        updatedProducts: 0,
+        executionReason: '自動実行',
+        skippedReason: '価格更新停止中',
+        durationSeconds: (Date.now() - startTime) / 1000
+      })
+
+      console.log(`⏸️ ${message}`)
+      return Response.json({ 
+        success: true, 
+        message,
+        skipped: true 
+      })
+    }
+
     // キープアライブ実行（トークン維持）
     try {
       console.log('🔄 キープアライブ実行中...')
@@ -102,7 +123,7 @@ export async function GET(request: NextRequest) {
 
     // 商品情報を取得して更新
     console.log('🔍 商品情報取得中...')
-    const updateResults = await updateProductPrices(client, priceService, goldRatio)
+    const updateResults = await updateProductPrices(client, priceService, goldRatio, platinumRatio)
     
     const updatedCount = updateResults.filter(r => r.success).length
     const failedCount = updateResults.filter(r => !r.success).length
@@ -164,7 +185,8 @@ export async function GET(request: NextRequest) {
 async function updateProductPrices(
   client: NextEngineClient,
   priceService: PriceService,
-  goldRatio: number
+  goldRatio: number,
+  platinumRatio: number
 ): Promise<PriceUpdateResult[]> {
   const results: PriceUpdateResult[] = []
   let offset = 0
@@ -189,7 +211,12 @@ async function updateProductPrices(
         const currentPrice = parseFloat(product.goods_selling_price)
         if (isNaN(currentPrice)) continue
 
-        const calculatedPrice = currentPrice * (1 + goldRatio)
+        // 金属種別に応じて変動率を選択
+        const metalType = priceService.getMetalType(productName)
+        if (!metalType) continue
+
+        const ratio = metalType === 'gold' ? goldRatio : platinumRatio
+        const calculatedPrice = currentPrice * (1 + ratio)
         const newPrice = priceService.roundUpToTen(calculatedPrice)
 
         // 価格に変更がない場合はスキップ
@@ -197,7 +224,7 @@ async function updateProductPrices(
           continue
         }
 
-        console.log(`🔄 更新: ${product.goods_id} ${currentPrice}円 → ${newPrice}円`)
+        console.log(`🔄 ${metalType === 'gold' ? '🥇金' : '🥈プラチナ'}更新: ${product.goods_id} ${currentPrice}円 → ${newPrice}円 (${(ratio * 100).toFixed(4)}%)`)
 
         const updateResult = await client.updateProductPrice(product.goods_id, newPrice)
         
@@ -206,6 +233,7 @@ async function updateProductPrices(
           productName,
           oldPrice: currentPrice,
           newPrice,
+          metalType,
           success: updateResult.result === 'success',
           error: updateResult.result !== 'success' ? updateResult.message : undefined
         })
@@ -215,11 +243,13 @@ async function updateProductPrices(
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const metalType = priceService.getMetalType(productName)
         results.push({
           productId: product.goods_id,
           productName,
           oldPrice: 0,
           newPrice: 0,
+          metalType,
           success: false,
           error: errorMessage
         })
