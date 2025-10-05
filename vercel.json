@@ -1,9 +1,8 @@
 {
-  "_crons_disabled": [
+  "crons": [
     {
       "path": "/api/nextengine/price-update",
-      "schedule": "0 1 * * 1-5",
-      "note": "一時的に無効化: gold-price-auto-shopify-appのcron制限対応"
+      "schedule": "0 1 * * 1-5"
     }
   ]
 }
