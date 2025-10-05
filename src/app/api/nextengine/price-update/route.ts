@@ -249,7 +249,7 @@ async function updateProductPrices(
           productName,
           oldPrice: 0,
           newPrice: 0,
-          metalType,
+          metalType: metalType || undefined,
           success: false,
           error: errorMessage
         })
