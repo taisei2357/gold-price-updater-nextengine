@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const productsResult = await nextEngineClient.callApi('/api_v1_master_goods/search', {
       limit: '5',
       offset: '0',
-      fields: 'goods_id,goods_name,selling_price'
+      fields: 'goods_id,goods_name'
     })
 
     if (!productsResult || productsResult.result !== 'success' || !productsResult.data) {
@@ -29,14 +29,13 @@ export async function POST(request: NextRequest) {
     const validProducts = productsResult.data
       .filter((product: any) => {
         return priceService.shouldUpdateProduct(product.goods_name || '') && 
-               product.goods_id && 
-               product.selling_price
+               product.goods_id
       })
       .slice(0, 3) // 最大3件に制限
       .map((product: any) => ({
         goodsId: product.goods_id,
         goodsName: product.goods_name,
-        newPrice: Math.round(parseFloat(product.selling_price) * 1.01), // 1%価格アップでテスト
+        newPrice: 50000, // テスト用固定価格
         metalType: priceService.getMetalType(product.goods_name) || 'gold'
       }))
 
