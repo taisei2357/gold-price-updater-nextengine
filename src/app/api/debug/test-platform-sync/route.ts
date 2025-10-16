@@ -4,7 +4,7 @@ import { PriceService } from '@/lib/price-service'
 /**
  * プラットフォーム同期テスト用エンドポイント
  */
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   const priceService = new PriceService()
 
   try {
