@@ -170,7 +170,7 @@ export class PriceService {
   }
 
   /**
-   * Amazon・Yahoo!ショップへの価格同期（標準の商品情報送信API使用）
+   * Amazon・Yahoo!ショップへの価格同期（商品マスタアップロードAPI使用）
    */
   async syncPricesToExternalPlatforms(updatedProducts: Array<{
     goodsId: string
@@ -186,86 +186,38 @@ export class PriceService {
         return { success: true, message: '同期対象商品なし' }
       }
 
-      // 各プラットフォームに商品情報送信を実行
-      const syncResults: {
-        amazon: any,
-        yahoo: any,
-        rakuten: any
-      } = {
-        amazon: null,
-        yahoo: null,
-        rakuten: null
-      }
-
-      try {
-        // Amazon商品情報送信
-        console.log('📦 Amazon商品情報送信...')
-        syncResults.amazon = await this.nextEngineClient.callApi('/api_v1_mall_amazon/bulkupsert', {
-          data_type: 'json',
-          data: JSON.stringify({
-            goods_list: updatedProducts.map(p => ({
-              goods_id: p.goodsId,
-              selling_price: p.newPrice
-            }))
-          })
-        })
-      } catch (amazonError) {
-        console.warn('⚠️ Amazon同期エラー:', amazonError)
-      }
-
-      try {
-        // Yahoo!ショッピング商品情報送信  
-        console.log('🛒 Yahoo!ショッピング商品情報送信...')
-        syncResults.yahoo = await this.nextEngineClient.callApi('/api_v1_mall_yahoo/bulkupsert', {
-          data_type: 'json',
-          data: JSON.stringify({
-            goods_list: updatedProducts.map(p => ({
-              goods_id: p.goodsId,
-              selling_price: p.newPrice
-            }))
-          })
-        })
-      } catch (yahooError) {
-        console.warn('⚠️ Yahoo!同期エラー:', yahooError)
-      }
-
-      try {
-        // 楽天市場商品情報送信
-        console.log('🛍️ 楽天市場商品情報送信...')
-        syncResults.rakuten = await this.nextEngineClient.callApi('/api_v1_mall_rakuten/bulkupsert', {
-          data_type: 'json', 
-          data: JSON.stringify({
-            goods_list: updatedProducts.map(p => ({
-              goods_id: p.goodsId,
-              selling_price: p.newPrice
-            }))
-          })
-        })
-      } catch (rakutenError) {
-        console.warn('⚠️ 楽天同期エラー:', rakutenError)
-      }
-
-      // 結果判定
-      const successCount = Object.values(syncResults).filter(r => r?.result === 'success').length
+      // 商品マスタアップロードAPI用のCSVデータ作成
+      const csvData = this.createProductMasterCsvData(updatedProducts)
       
-      if (successCount > 0) {
-        console.log(`✅ 外部プラットフォーム価格同期完了 (${successCount}/3プラットフォーム成功)`)
+      console.log('📄 商品マスタCSVデータ作成完了')
+      console.log('CSV内容（最初の3行）:', csvData.split('\n').slice(0, 3).join('\n'))
+
+      // 商品マスタアップロードAPI実行
+      const uploadResult = await this.nextEngineClient.callApi('/api_v1_master_goods/upload', {
+        data_type: 'csv',
+        data: csvData
+      })
+
+      console.log('📤 商品マスタアップロード結果:', uploadResult)
+
+      if (uploadResult && uploadResult.result === 'success') {
+        console.log('✅ 外部プラットフォーム価格同期完了')
         
         // 同期ログをDBに保存
         await this.savePlatformSyncLog({
           syncedAt: new Date(),
           productCount: updatedProducts.length,
           status: 'success',
-          details: syncResults
+          details: uploadResult
         })
 
         return {
           success: true,
-          message: `${updatedProducts.length}商品の外部プラットフォーム価格同期完了 (${successCount}/3成功)`,
-          details: syncResults
+          message: `${updatedProducts.length}商品の外部プラットフォーム価格同期完了`,
+          details: uploadResult
         }
       } else {
-        throw new Error('全プラットフォームの同期に失敗しました')
+        throw new Error(`商品マスタアップロード失敗: ${JSON.stringify(uploadResult)}`)
       }
 
     } catch (error) {
@@ -284,6 +236,32 @@ export class PriceService {
         message: `外部プラットフォーム価格同期失敗: ${error instanceof Error ? error.message : 'Unknown error'}`
       }
     }
+  }
+
+  /**
+   * 商品マスタアップロード用CSVデータ作成
+   */
+  private createProductMasterCsvData(products: Array<{
+    goodsId: string
+    goodsName: string
+    newPrice: number
+    metalType: 'gold' | 'platinum'
+  }>): string {
+    // CSVヘッダー（org1=Amazon価格, org2=Yahoo価格, org3=楽天価格）
+    const header = 'goods_id,selling_price,org1,org2,org3'
+    
+    // 各商品のCSV行を作成
+    const rows = products.map(product => {
+      return [
+        product.goodsId,
+        product.newPrice,
+        product.newPrice, // org1: Amazon価格
+        product.newPrice, // org2: Yahoo価格  
+        product.newPrice  // org3: 楽天価格
+      ].join(',')
+    })
+
+    return [header, ...rows].join('\n')
   }
 
   /**
