@@ -71,6 +71,19 @@ export async function POST(request: NextRequest) {
       );
     `)
     
+    // PlatformSyncLogテーブル作成（新規追加）
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS platform_sync_logs (
+        id SERIAL PRIMARY KEY,
+        synced_at TIMESTAMP NOT NULL,
+        product_count INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        details TEXT,
+        error_message TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `)
+    
     await client.end()
     
     console.log('✅ Database tables created successfully')
