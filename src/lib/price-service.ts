@@ -187,7 +187,11 @@ export class PriceService {
       }
 
       // 各プラットフォームに商品情報送信を実行
-      const syncResults = {
+      const syncResults: {
+        amazon: any,
+        yahoo: any,
+        rakuten: any
+      } = {
         amazon: null,
         yahoo: null,
         rakuten: null
