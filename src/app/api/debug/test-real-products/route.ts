@@ -15,7 +15,8 @@ export async function POST(request: NextRequest) {
     // NextEngineから商品情報を取得（最大5件で制限）
     const productsResult = await nextEngineClient.callApi('/api_v1_master_goods/search', {
       limit: '5',
-      offset: '0'
+      offset: '0',
+      fields: 'goods_id,goods_name,selling_price'
     })
 
     if (!productsResult || productsResult.result !== 'success' || !productsResult.data) {
