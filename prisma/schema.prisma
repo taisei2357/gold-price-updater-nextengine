@@ -59,3 +59,16 @@ model KeepAliveLog {
 
   @@map("keepalive_logs")
 }
+
+// 外部プラットフォーム価格同期ログ
+model PlatformSyncLog {
+  id           Int      @id @default(autoincrement())
+  syncedAt     DateTime @map("synced_at")
+  productCount Int      @map("product_count")
+  status       String   // success, error
+  details      String?  // JSON string of API response details
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("platform_sync_logs")
+}

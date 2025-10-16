@@ -46,11 +46,22 @@ async function getSystemStatus() {
       console.error('Price query failed:', priceError)
     }
 
+    // 最新のプラットフォーム同期ログ
+    let latestPlatformSync = null
+    try {
+      latestPlatformSync = await db.platformSyncLog.findFirst({
+        orderBy: { createdAt: 'desc' }
+      })
+    } catch (syncError) {
+      console.error('Platform sync query failed:', syncError)
+    }
+
     return {
       keepAlive: latestKeepAlive,
       execution: latestExecution,
       hasToken: !!tokenExists,
       latestPrice,
+      platformSync: latestPlatformSync,
       debug: {
         tokenFound: !!tokenExists,
         tokenId: tokenExists?.id
@@ -101,7 +112,7 @@ export default async function HomePage({
       )}
       
       {/* システム状態 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-lg font-semibold mb-2">認証状態</h3>
           <div className={`text-2xl font-bold ${status?.hasToken ? 'text-green-600' : 'text-red-600'}`}>
@@ -178,12 +189,34 @@ export default async function HomePage({
             })
           </div>
         </div>
+
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-2">プラットフォーム同期</h3>
+          <div className={`text-lg font-bold ${
+            status?.platformSync?.status === 'success' ? 'text-green-600' : 
+            status?.platformSync?.status === 'error' ? 'text-red-600' : 'text-gray-400'
+          }`}>
+            {status?.platformSync?.status === 'success' ? '✅ 成功' :
+             status?.platformSync?.status === 'error' ? '❌ エラー' : '未実行'}
+          </div>
+          <div className="text-sm text-gray-600 mt-1">
+            {status?.platformSync?.syncedAt 
+              ? new Date(status.platformSync.syncedAt).toLocaleString('ja-JP')
+              : '---'
+            }
+          </div>
+          {status?.platformSync?.productCount !== undefined && (
+            <div className="text-sm text-gray-600">
+              同期商品: {status.platformSync.productCount}件
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 機能メニュー */}
       <div className="bg-white p-6 rounded-lg shadow mb-8">
         <h2 className="text-xl font-semibold mb-4">システム操作</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <Link 
             href="/api/nextengine/keepalive"
             className="bg-blue-600 text-white px-6 py-3 rounded text-center hover:bg-blue-700 block"
@@ -197,18 +230,30 @@ export default async function HomePage({
             手動価格更新実行
           </Link>
           <Link 
+            href="/api/nextengine/platform-sync"
+            className="bg-purple-600 text-white px-6 py-3 rounded text-center hover:bg-purple-700 block"
+          >
+            プラットフォーム同期状況
+          </Link>
+          <Link 
             href="/api/nextengine/callback?health=1"
             className="bg-gray-600 text-white px-6 py-3 rounded text-center hover:bg-gray-700 block"
           >
             システムヘルスチェック
           </Link>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link 
             href="/api/debug/db-status"
             className="bg-orange-600 text-white px-6 py-3 rounded text-center hover:bg-orange-700 block"
           >
             データベース状態確認
+          </Link>
+          <Link 
+            href="/api/debug/test-platform-sync"
+            className="bg-pink-600 text-white px-6 py-3 rounded text-center hover:bg-pink-700 block"
+          >
+            プラットフォーム同期テスト
           </Link>
           <form action="/api/debug/refresh-token" method="POST">
             <button 
