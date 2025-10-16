@@ -128,6 +128,28 @@ export async function GET(request: NextRequest) {
     const updatedCount = updateResults.filter(r => r.success).length
     const failedCount = updateResults.filter(r => !r.success).length
 
+    // 外部プラットフォーム価格同期（NextEngine更新成功後）
+    let syncResult = null
+    if (updatedCount > 0) {
+      console.log('🔄 外部プラットフォーム価格同期開始...')
+      const updatedProducts = updateResults
+        .filter(r => r.success)
+        .map(r => ({
+          goodsId: r.productId,
+          goodsName: r.productName,
+          newPrice: r.newPrice,
+          metalType: r.metalType as 'gold' | 'platinum'
+        }))
+
+      syncResult = await priceService.syncPricesToExternalPlatforms(updatedProducts)
+      
+      if (syncResult.success) {
+        console.log('✅ 外部プラットフォーム価格同期完了')
+      } else {
+        console.error('❌ 外部プラットフォーム価格同期失敗:', syncResult.message)
+      }
+    }
+
     // 実行結果をログに記録
     await logExecution({
       status: updatedCount > 0 ? 'SUCCESS' : 'FAILED',
@@ -140,6 +162,9 @@ export async function GET(request: NextRequest) {
     })
 
     console.log(`✅ 価格更新完了: 成功=${updatedCount}件, 失敗=${failedCount}件`)
+    if (syncResult) {
+      console.log(`📊 プラットフォーム同期: ${syncResult.success ? '成功' : '失敗'} - ${syncResult.message}`)
+    }
 
     return Response.json({
       success: true,
@@ -150,7 +175,11 @@ export async function GET(request: NextRequest) {
         failedProducts: failedCount,
         goldRatio,
         platinumRatio,
-        duration: (Date.now() - startTime) / 1000
+        duration: (Date.now() - startTime) / 1000,
+        platformSync: syncResult ? {
+          success: syncResult.success,
+          message: syncResult.message
+        } : null
       }
     })
 

@@ -1,7 +1,13 @@
 import { db } from './db'
+import { NextEngineClient } from './nextengine-client'
 import type { PriceHistoryData } from '@/types/nextengine'
 
 export class PriceService {
+  private nextEngineClient: NextEngineClient
+
+  constructor() {
+    this.nextEngineClient = new NextEngineClient()
+  }
   /**
    * 田中貴金属から現在の金・プラチナ価格を取得
    */
@@ -161,5 +167,182 @@ export class PriceService {
     if (productName.includes('K24')) return 'gold'
     
     return null
+  }
+
+  /**
+   * Amazon・Yahoo!ショップへの価格同期（標準の商品情報送信API使用）
+   */
+  async syncPricesToExternalPlatforms(updatedProducts: Array<{
+    goodsId: string
+    goodsName: string
+    newPrice: number
+    metalType: 'gold' | 'platinum'
+  }>): Promise<{ success: boolean; message: string; details?: any }> {
+    try {
+      console.log('🔄 外部プラットフォーム価格同期開始...')
+      console.log(`対象商品数: ${updatedProducts.length}件`)
+
+      if (updatedProducts.length === 0) {
+        return { success: true, message: '同期対象商品なし' }
+      }
+
+      // 各プラットフォームに商品情報送信を実行
+      const syncResults = {
+        amazon: null,
+        yahoo: null,
+        rakuten: null
+      }
+
+      try {
+        // Amazon商品情報送信
+        console.log('📦 Amazon商品情報送信...')
+        syncResults.amazon = await this.nextEngineClient.callApi('/api_v1_mall_amazon/bulkupsert', {
+          data_type: 'json',
+          data: JSON.stringify({
+            goods_list: updatedProducts.map(p => ({
+              goods_id: p.goodsId,
+              selling_price: p.newPrice
+            }))
+          })
+        })
+      } catch (amazonError) {
+        console.warn('⚠️ Amazon同期エラー:', amazonError)
+      }
+
+      try {
+        // Yahoo!ショッピング商品情報送信  
+        console.log('🛒 Yahoo!ショッピング商品情報送信...')
+        syncResults.yahoo = await this.nextEngineClient.callApi('/api_v1_mall_yahoo/bulkupsert', {
+          data_type: 'json',
+          data: JSON.stringify({
+            goods_list: updatedProducts.map(p => ({
+              goods_id: p.goodsId,
+              selling_price: p.newPrice
+            }))
+          })
+        })
+      } catch (yahooError) {
+        console.warn('⚠️ Yahoo!同期エラー:', yahooError)
+      }
+
+      try {
+        // 楽天市場商品情報送信
+        console.log('🛍️ 楽天市場商品情報送信...')
+        syncResults.rakuten = await this.nextEngineClient.callApi('/api_v1_mall_rakuten/bulkupsert', {
+          data_type: 'json', 
+          data: JSON.stringify({
+            goods_list: updatedProducts.map(p => ({
+              goods_id: p.goodsId,
+              selling_price: p.newPrice
+            }))
+          })
+        })
+      } catch (rakutenError) {
+        console.warn('⚠️ 楽天同期エラー:', rakutenError)
+      }
+
+      // 結果判定
+      const successCount = Object.values(syncResults).filter(r => r?.result === 'success').length
+      
+      if (successCount > 0) {
+        console.log(`✅ 外部プラットフォーム価格同期完了 (${successCount}/3プラットフォーム成功)`)
+        
+        // 同期ログをDBに保存
+        await this.savePlatformSyncLog({
+          syncedAt: new Date(),
+          productCount: updatedProducts.length,
+          status: 'success',
+          details: syncResults
+        })
+
+        return {
+          success: true,
+          message: `${updatedProducts.length}商品の外部プラットフォーム価格同期完了 (${successCount}/3成功)`,
+          details: syncResults
+        }
+      } else {
+        throw new Error('全プラットフォームの同期に失敗しました')
+      }
+
+    } catch (error) {
+      console.error('❌ 外部プラットフォーム価格同期エラー:', error)
+      
+      // エラーログ保存
+      await this.savePlatformSyncLog({
+        syncedAt: new Date(),
+        productCount: updatedProducts.length,
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+
+      return {
+        success: false,
+        message: `外部プラットフォーム価格同期失敗: ${error instanceof Error ? error.message : 'Unknown error'}`
+      }
+    }
+  }
+
+  /**
+   * プラットフォーム同期ログをDBに保存
+   */
+  private async savePlatformSyncLog(logData: {
+    syncedAt: Date
+    productCount: number
+    status: 'success' | 'error'
+    details?: any
+    error?: string
+  }): Promise<void> {
+    try {
+      await db.platformSyncLog.create({
+        data: {
+          syncedAt: logData.syncedAt,
+          productCount: logData.productCount,
+          status: logData.status,
+          details: logData.details ? JSON.stringify(logData.details) : null,
+          errorMessage: logData.error || null
+        }
+      })
+    } catch (error) {
+      console.error('プラットフォーム同期ログ保存エラー:', error)
+    }
+  }
+
+  /**
+   * 外部プラットフォーム同期状況の確認
+   */
+  async getPlatformSyncStatus(): Promise<{
+    lastSync: Date | null
+    recentSyncs: Array<{
+      syncedAt: Date
+      productCount: number
+      status: string
+      errorMessage?: string
+    }>
+  }> {
+    try {
+      const recentSyncs = await db.platformSyncLog.findMany({
+        orderBy: { syncedAt: 'desc' },
+        take: 10,
+        select: {
+          syncedAt: true,
+          productCount: true,
+          status: true,
+          errorMessage: true
+        }
+      })
+
+      const lastSync = recentSyncs.length > 0 ? recentSyncs[0].syncedAt : null
+
+      return {
+        lastSync,
+        recentSyncs
+      }
+    } catch (error) {
+      console.error('プラットフォーム同期状況取得エラー:', error)
+      return {
+        lastSync: null,
+        recentSyncs: []
+      }
+    }
   }
 }
