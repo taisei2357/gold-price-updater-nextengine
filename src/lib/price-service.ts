@@ -337,9 +337,17 @@ export class PriceService {
 
       const lastSync = recentSyncs.length > 0 ? recentSyncs[0].syncedAt : null
 
+      // null を undefined に変換
+      const formattedSyncs = recentSyncs.map(sync => ({
+        syncedAt: sync.syncedAt,
+        productCount: sync.productCount,
+        status: sync.status,
+        errorMessage: sync.errorMessage || undefined
+      }))
+
       return {
         lastSync,
-        recentSyncs
+        recentSyncs: formattedSyncs
       }
     } catch (error) {
       console.error('プラットフォーム同期状況取得エラー:', error)
