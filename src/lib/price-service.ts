@@ -186,38 +186,56 @@ export class PriceService {
         return { success: true, message: '同期対象商品なし' }
       }
 
-      // 商品マスタアップロードAPI用のCSVデータ作成
-      const csvData = this.createProductMasterCsvData(updatedProducts)
+      // バッチサイズを50件に制限（エラー006005対策）
+      const BATCH_SIZE = 50
+      const batches = this.createBatches(updatedProducts, BATCH_SIZE)
       
-      console.log('📄 商品マスタCSVデータ作成完了')
-      console.log('CSV内容（最初の3行）:', csvData.split('\n').slice(0, 3).join('\n'))
+      console.log(`📦 ${batches.length}個のバッチに分割（バッチサイズ: ${BATCH_SIZE}）`)
 
-      // 商品マスタアップロードAPI実行
-      const uploadResult = await this.nextEngineClient.callApi('/api_v1_master_goods/upload', {
-        data_type: 'csv',
-        data: csvData
-      })
+      const allResults: any[] = []
+      let successfulBatches = 0
+      let totalProcessedProducts = 0
 
-      console.log('📤 商品マスタアップロード結果:', uploadResult)
+      // 各バッチを順次処理
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i]
+        console.log(`🔄 バッチ ${i + 1}/${batches.length} 処理開始（${batch.length}件）`)
 
-      if (uploadResult && uploadResult.result === 'success') {
-        console.log('✅ 外部プラットフォーム価格同期完了')
+        const batchResult = await this.processBatchWithRetry(batch, i + 1)
         
-        // 同期ログをDBに保存
-        await this.savePlatformSyncLog({
-          syncedAt: new Date(),
-          productCount: updatedProducts.length,
-          status: 'success',
-          details: uploadResult
+        allResults.push({
+          batchNumber: i + 1,
+          productCount: batch.length,
+          ...batchResult
         })
 
-        return {
-          success: true,
-          message: `${updatedProducts.length}商品の外部プラットフォーム価格同期完了`,
-          details: uploadResult
+        if (batchResult.success) {
+          successfulBatches++
+          totalProcessedProducts += batch.length
         }
-      } else {
-        throw new Error(`商品マスタアップロード失敗: ${JSON.stringify(uploadResult)}`)
+
+        // バッチ間で1秒待機（API制限対策）
+        if (i < batches.length - 1) {
+          await this.delay(1000)
+        }
+      }
+
+      const overallSuccess = successfulBatches > 0
+      const message = `${totalProcessedProducts}/${updatedProducts.length}商品の価格同期完了 (${successfulBatches}/${batches.length}バッチ成功)`
+
+      // 同期ログをDBに保存
+      await this.savePlatformSyncLog({
+        syncedAt: new Date(),
+        productCount: totalProcessedProducts,
+        status: overallSuccess ? 'success' : 'error',
+        details: allResults,
+        error: overallSuccess ? undefined : '一部またはすべてのバッチが失敗しました'
+      })
+
+      return {
+        success: overallSuccess,
+        message,
+        details: allResults
       }
 
     } catch (error) {
@@ -236,6 +254,97 @@ export class PriceService {
         message: `外部プラットフォーム価格同期失敗: ${error instanceof Error ? error.message : 'Unknown error'}`
       }
     }
+  }
+
+  /**
+   * 配列を指定サイズのバッチに分割
+   */
+  private createBatches<T>(array: T[], batchSize: number): T[][] {
+    const batches: T[][] = []
+    for (let i = 0; i < array.length; i += batchSize) {
+      batches.push(array.slice(i, i + batchSize))
+    }
+    return batches
+  }
+
+  /**
+   * バッチ処理をリトライ機能付きで実行
+   */
+  private async processBatchWithRetry(
+    batch: Array<{goodsId: string, goodsName: string, newPrice: number, metalType: 'gold' | 'platinum'}>,
+    batchNumber: number,
+    maxRetries: number = 3
+  ): Promise<{success: boolean, message: string, details?: any, retryCount?: number}> {
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 バッチ${batchNumber} 試行${attempt}/${maxRetries}`)
+
+        // 商品マスタアップロードAPI用のCSVデータ作成
+        const csvData = this.createProductMasterCsvData(batch)
+        
+        // 商品マスタアップロードAPI実行
+        const uploadResult = await this.nextEngineClient.callApi('/api_v1_master_goods/upload', {
+          data_type: 'csv',
+          data: csvData
+        })
+
+        console.log(`📤 バッチ${batchNumber} アップロード結果:`, uploadResult)
+
+        if (uploadResult && uploadResult.result === 'success') {
+          console.log(`✅ バッチ${batchNumber} 同期完了（試行${attempt}）`)
+          return {
+            success: true,
+            message: `バッチ${batchNumber} 同期成功`,
+            details: uploadResult,
+            retryCount: attempt - 1
+          }
+        } else {
+          // エラー006005の場合はリトライ
+          if (uploadResult?.code === '006005') {
+            console.warn(`⚠️ バッチ${batchNumber} エラー006005（試行${attempt}）: ${uploadResult.message}`)
+            if (attempt < maxRetries) {
+              const delayMs = 2000 * attempt // 試行回数に応じて待機時間を増加
+              console.log(`⏳ ${delayMs}ms 待機後にリトライします...`)
+              await this.delay(delayMs)
+              continue
+            }
+          }
+          
+          throw new Error(`バッチ${batchNumber} アップロード失敗: ${JSON.stringify(uploadResult)}`)
+        }
+
+      } catch (error) {
+        console.error(`❌ バッチ${batchNumber} 試行${attempt} エラー:`, error)
+        
+        if (attempt < maxRetries) {
+          const delayMs = 2000 * attempt
+          console.log(`⏳ ${delayMs}ms 待機後にリトライします...`)
+          await this.delay(delayMs)
+          continue
+        }
+        
+        return {
+          success: false,
+          message: `バッチ${batchNumber} 最大リトライ回数超過`,
+          details: error instanceof Error ? error.message : 'Unknown error',
+          retryCount: maxRetries
+        }
+      }
+    }
+
+    return {
+      success: false,
+      message: `バッチ${batchNumber} 処理失敗`,
+      retryCount: maxRetries
+    }
+  }
+
+  /**
+   * 指定時間待機
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms))
   }
 
   /**
