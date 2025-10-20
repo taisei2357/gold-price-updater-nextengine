@@ -349,6 +349,7 @@ export class PriceService {
 
   /**
    * 商品マスタアップロード用CSVデータ作成
+   * NextEngineサポート回答に基づき正しいフィールド名を使用
    */
   private createProductMasterCsvData(products: Array<{
     goodsId: string
@@ -356,17 +357,19 @@ export class PriceService {
     newPrice: number
     metalType: 'gold' | 'platinum'
   }>): string {
-    // CSVヘッダー（org1=Amazon価格, org2=Yahoo価格, org3=楽天価格）
-    const header = 'goods_id,selling_price,org1,org2,org3'
+    // CSVヘッダー（NextEngine正式フィールド名を使用）
+    // syohin_code: 商品コード, baika_tnk: 売価
+    // org1=Amazon価格, org2=Yahoo価格, org3=楽天価格
+    const header = 'syohin_code,baika_tnk,org1,org2,org3'
     
     // 各商品のCSV行を作成
     const rows = products.map(product => {
       return [
-        product.goodsId,
-        product.newPrice,
-        product.newPrice, // org1: Amazon価格
-        product.newPrice, // org2: Yahoo価格  
-        product.newPrice  // org3: 楽天価格
+        product.goodsId,     // syohin_code: 商品コード
+        product.newPrice,    // baika_tnk: メイン売価
+        product.newPrice,    // org1: Amazon価格（項目1）
+        product.newPrice,    // org2: Yahoo価格（項目2）
+        product.newPrice     // org3: 楽天価格（項目3）
       ].join(',')
     })
 
