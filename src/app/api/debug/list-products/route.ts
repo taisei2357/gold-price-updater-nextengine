@@ -11,7 +11,7 @@ export async function GET() {
     
     // 商品データを取得（より多くのフィールドを取得）
     const result = await client.callApi('/api_v1_master_goods/search', {
-      fields: 'goods_id,goods_name,goods_selling_price,goods_cost_price,stock_quantity,goods_tag_id',
+      fields: 'goods_id,goods_name,goods_selling_price,goods_cost_price,stock_quantity',
       limit: 500, // 最大500件まで取得
       offset: 0
     })
