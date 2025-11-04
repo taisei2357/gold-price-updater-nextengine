@@ -143,12 +143,13 @@ export class PriceService {
    * 商品名フィルタリング
    */
   shouldUpdateProduct(productName: string): boolean {
-    // 「【新品】」「【新品仕上げ中古】」「【中古A】」「【中古B】」「【中古C】」で始まり、「K18」「K24」または「Pt」を含む商品
-    const startsWithTarget = productName.startsWith('【新品】') || 
-                            productName.startsWith('【新品仕上げ中古】') ||
-                            productName.startsWith('【中古A】') ||
-                            productName.startsWith('【中古B】') ||
-                            productName.startsWith('【中古C】')
+    // 「【新品】」で始まり、「K18」「K24」または「Pt」を含む商品
+    // 中古商品は一時的に対象外
+    const startsWithTarget = productName.startsWith('【新品】')
+                            // productName.startsWith('【新品仕上げ中古】') ||
+                            // productName.startsWith('【中古A】') ||
+                            // productName.startsWith('【中古B】') ||
+                            // productName.startsWith('【中古C】')
     const containsK18 = productName.includes('K18')
     const containsK24 = productName.includes('K24')
     const containsPt = productName.includes('Pt')
