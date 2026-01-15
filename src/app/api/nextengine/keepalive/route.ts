@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { NextEngineClient } from '@/lib/nextengine-client'
 import { db } from '@/lib/db'
+import { EmailNotifier } from '@/lib/email-notifier'
 
 /**
  * NextEngine キープアライブ
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
   }
 
   const client = new NextEngineClient()
+  const emailNotifier = new EmailNotifier()
 
   try {
     console.log('🚀 NextEngine KeepAlive starting...')
@@ -34,6 +36,44 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // 成功時：システム復旧通知（前回失敗していた場合）
+    if (result.success) {
+      // 前回の実行が失敗していたかチェック
+      const previousLog = await db.keepAliveLog.findFirst({
+        where: { id: { not: (await db.keepAliveLog.findFirst({ orderBy: { id: 'desc' } }))?.id } },
+        orderBy: { createdAt: 'desc' }
+      })
+
+      if (previousLog?.status === 'FAILED') {
+        console.log('📧 Sending system recovery notification...')
+        await emailNotifier.sendSystemRecovery()
+      }
+    } else {
+      // 失敗時：連続失敗回数をカウントして通知
+      const recentLogs = await db.keepAliveLog.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      })
+      
+      let consecutiveFailures = 0
+      for (const log of recentLogs) {
+        if (log.status === 'FAILED') {
+          consecutiveFailures++
+        } else {
+          break
+        }
+      }
+
+      console.log(`📧 Sending keepalive failure notification (${consecutiveFailures} consecutive failures)...`)
+      await emailNotifier.sendKeepAliveFailure(result.message, consecutiveFailures)
+
+      // トークン期限切れの可能性をチェック
+      if (result.message.includes('access_token') || result.message.includes('002002')) {
+        console.log('📧 Sending token expiration warning...')
+        await emailNotifier.sendTokenExpirationWarning()
+      }
+    }
+
     console.log(`✅ KeepAlive completed: ${result.message} (${duration}s)`)
 
     return Response.json({
@@ -45,7 +85,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    const duration = (Date.now() - Date.now()) / 1000
+    const duration = (Date.now() - startTime) / 1000
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     
     console.error('❌ KeepAlive failed:', errorMessage)
@@ -58,6 +98,32 @@ export async function GET(request: NextRequest) {
           message: errorMessage
         }
       })
+
+      // 連続失敗回数をカウント
+      const recentLogs = await db.keepAliveLog.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      })
+      
+      let consecutiveFailures = 1 // 現在の失敗を含む
+      for (let i = 1; i < recentLogs.length; i++) {
+        if (recentLogs[i].status === 'FAILED') {
+          consecutiveFailures++
+        } else {
+          break
+        }
+      }
+
+      // メール通知送信
+      console.log(`📧 Sending error notification (${consecutiveFailures} consecutive failures)...`)
+      await emailNotifier.sendKeepAliveFailure(errorMessage, consecutiveFailures)
+
+      // トークン関連エラーの場合は追加警告
+      if (errorMessage.includes('access_token') || errorMessage.includes('002002') || errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        console.log('📧 Sending token expiration warning...')
+        await emailNotifier.sendTokenExpirationWarning()
+      }
+
     } catch (logError) {
       console.error('Failed to log error:', logError)
     }
