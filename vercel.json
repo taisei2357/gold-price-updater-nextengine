@@ -3,6 +3,14 @@
     {
       "path": "/api/nextengine/price-update",
       "schedule": "0 1 * * 1-5"
+    },
+    {
+      "path": "/api/nextengine/keepalive",
+      "schedule": "0 */12 * * *"
+    },
+    {
+      "path": "/api/monitoring/weekly-report",
+      "schedule": "0 0 * * 1"
     }
   ]
 }
