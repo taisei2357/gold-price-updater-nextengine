@@ -16,9 +16,9 @@ export class EmailNotifier {
   private toEmail: string
 
   constructor() {
-    this.apiKey = process.env.SENDGRID_API_KEY || ''
+    this.apiKey = process.env.SENDGRID_API_KEY || 'zBFj6UpNQ4-HmWFan9uq7g'
     this.fromEmail = process.env.NOTIFICATION_FROM_EMAIL || 'system@nextengine-updater.com'
-    this.toEmail = process.env.NOTIFICATION_TO_EMAIL || 'admin@example.com'
+    this.toEmail = process.env.NOTIFICATION_TO_EMAIL || 'taisei19971021@gmail.com'
 
     if (!this.apiKey) {
       console.warn('⚠️ SendGrid API key not configured')
