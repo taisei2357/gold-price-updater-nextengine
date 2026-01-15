@@ -10,14 +10,39 @@ interface UpdateStatus {
   environment?: Record<string, string>
 }
 
+interface ExecutionLog {
+  date: string
+  status: string
+  updatedProducts: number
+  executionReason: string
+  errorMessage?: string
+  skippedReason?: string
+  createdAt: string
+}
+
+interface LogsData {
+  lastSuccessfulUpdate: ExecutionLog | null
+  lastExecution: ExecutionLog | null
+  stats: {
+    totalLogs: number
+    successCount: number
+    failedCount: number
+    skippedCount: number
+  }
+  recentLogs: ExecutionLog[]
+}
+
 export default function AdminPage() {
   const [status, setStatus] = useState<UpdateStatus | null>(null)
+  const [logs, setLogs] = useState<LogsData | null>(null)
   const [loading, setLoading] = useState(false)
   const [secret, setSecret] = useState('')
+  const [showLogs, setShowLogs] = useState(false)
 
   // 初期状態を取得
   useEffect(() => {
     fetchStatus()
+    fetchLogs()
   }, [])
 
   const fetchStatus = async () => {
@@ -27,6 +52,18 @@ export default function AdminPage() {
       setStatus(data)
     } catch (error) {
       console.error('Status fetch error:', error)
+    }
+  }
+
+  const fetchLogs = async () => {
+    try {
+      const response = await fetch('/api/debug/execution-logs')
+      const data = await response.json()
+      if (data.success) {
+        setLogs(data.data)
+      }
+    } catch (error) {
+      console.error('Logs fetch error:', error)
     }
   }
 
@@ -215,6 +252,138 @@ export default function AdminPage() {
           <strong>再開:</strong> Vercel Dashboard → Environment Variables → <code>PRICE_UPDATE_ENABLED = true</code> (または削除)
         </div>
       </div>
+
+      {/* ログ情報 */}
+      {logs && (
+        <div style={{
+          background: '#f8fafc',
+          border: '1px solid #cbd5e1',
+          borderRadius: '8px',
+          padding: '1.5rem',
+          marginTop: '2rem'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ margin: 0 }}>📊 実行ログ</h3>
+            <button
+              onClick={() => setShowLogs(!showLogs)}
+              style={{
+                background: '#6b7280',
+                color: 'white',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              {showLogs ? '非表示' : '詳細表示'}
+            </button>
+          </div>
+
+          {/* サマリー情報 */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            {logs.lastSuccessfulUpdate ? (
+              <div style={{
+                background: '#dcfce7',
+                border: '1px solid #16a34a',
+                borderRadius: '6px',
+                padding: '1rem',
+                marginBottom: '1rem'
+              }}>
+                <h4 style={{ margin: '0 0 0.5rem 0', color: '#15803d' }}>
+                  ✅ 最後の成功した価格更新
+                </h4>
+                <div style={{ fontSize: '0.875rem' }}>
+                  <div><strong>実行日時:</strong> {new Date(logs.lastSuccessfulUpdate.createdAt).toLocaleString('ja-JP')}</div>
+                  <div><strong>更新商品数:</strong> {logs.lastSuccessfulUpdate.updatedProducts}件</div>
+                  <div><strong>実行理由:</strong> {logs.lastSuccessfulUpdate.executionReason}</div>
+                </div>
+              </div>
+            ) : (
+              <div style={{
+                background: '#fef2f2',
+                border: '1px solid #dc2626',
+                borderRadius: '6px',
+                padding: '1rem',
+                marginBottom: '1rem'
+              }}>
+                <h4 style={{ margin: '0 0 0.5rem 0', color: '#dc2626' }}>
+                  ❌ 成功した価格更新が見つかりません
+                </h4>
+              </div>
+            )}
+
+            {logs.lastExecution && (
+              <div style={{
+                background: logs.lastExecution.status === 'SUCCESS' ? '#dcfce7' : 
+                           logs.lastExecution.status === 'FAILED' ? '#fef2f2' : '#fef3c7',
+                border: `1px solid ${logs.lastExecution.status === 'SUCCESS' ? '#16a34a' : 
+                                   logs.lastExecution.status === 'FAILED' ? '#dc2626' : '#f59e0b'}`,
+                borderRadius: '6px',
+                padding: '1rem'
+              }}>
+                <h4 style={{ margin: '0 0 0.5rem 0' }}>
+                  🕐 最新実行結果
+                </h4>
+                <div style={{ fontSize: '0.875rem' }}>
+                  <div><strong>実行日時:</strong> {new Date(logs.lastExecution.createdAt).toLocaleString('ja-JP')}</div>
+                  <div><strong>ステータス:</strong> {logs.lastExecution.status}</div>
+                  <div><strong>更新商品数:</strong> {logs.lastExecution.updatedProducts}件</div>
+                  <div><strong>実行理由:</strong> {logs.lastExecution.executionReason}</div>
+                  {logs.lastExecution.errorMessage && (
+                    <div><strong>エラー:</strong> {logs.lastExecution.errorMessage}</div>
+                  )}
+                  {logs.lastExecution.skippedReason && (
+                    <div><strong>スキップ理由:</strong> {logs.lastExecution.skippedReason}</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 統計情報 */}
+          <div style={{ marginBottom: '1rem' }}>
+            <h4 style={{ margin: '0 0 0.5rem 0' }}>📈 統計</h4>
+            <div style={{ fontSize: '0.875rem', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+              <div>総実行数: {logs.stats.totalLogs}</div>
+              <div>成功: {logs.stats.successCount}</div>
+              <div>失敗: {logs.stats.failedCount}</div>
+              <div>スキップ: {logs.stats.skippedCount}</div>
+            </div>
+          </div>
+
+          {/* 詳細ログ */}
+          {showLogs && (
+            <div>
+              <h4 style={{ margin: '1rem 0 0.5rem 0' }}>📝 最近の実行履歴</h4>
+              <div style={{ maxHeight: '300px', overflow: 'auto' }}>
+                {logs.recentLogs.map((log, index) => (
+                  <div key={index} style={{
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '4px',
+                    padding: '0.75rem',
+                    marginBottom: '0.5rem',
+                    fontSize: '0.875rem'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                      <span><strong>{new Date(log.createdAt).toLocaleString('ja-JP')}</strong></span>
+                      <span style={{ 
+                        color: log.status === 'SUCCESS' ? '#16a34a' : 
+                               log.status === 'FAILED' ? '#dc2626' : '#f59e0b'
+                      }}>
+                        {log.status}
+                      </span>
+                    </div>
+                    <div>更新商品数: {log.updatedProducts}件</div>
+                    <div>理由: {log.executionReason}</div>
+                    {log.errorMessage && <div style={{ color: '#dc2626' }}>エラー: {log.errorMessage}</div>}
+                    {log.skippedReason && <div style={{ color: '#f59e0b' }}>スキップ: {log.skippedReason}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* スケジュール情報 */}
       <div style={{
