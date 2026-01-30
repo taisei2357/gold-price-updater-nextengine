@@ -84,23 +84,25 @@ model Session {
   updatedAt    DateTime
 }
 
-model keepalive_logs {
-  id         Int      @id @default(autoincrement())
-  status     String
-  message    String?
-  created_at DateTime @default(now())
+model KeepAliveLog {
+  id        Int      @id @default(autoincrement())
+  status    String
+  message   String?
+  createdAt DateTime @default(now()) @map("created_at")
 
-  @@index([created_at(sort: Desc)])
+  @@map("keepalive_logs")
 }
 
-model nextengine_tokens {
-  id            Int      @id @default(1)
-  access_token  String
-  refresh_token String
-  client_id     String?
-  client_secret String?
-  updated_at    DateTime @default(now())
-  created_at    DateTime @default(now())
+model NextEngineToken {
+  id           Int      @id @default(1)
+  accessToken  String   @map("access_token")
+  refreshToken String   @map("refresh_token")
+  clientId     String?  @map("client_id")
+  clientSecret String?  @map("client_secret")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("nextengine_tokens")
 }
 
 model PriceHistory {

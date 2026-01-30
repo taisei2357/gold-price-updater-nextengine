@@ -20,10 +20,10 @@ export async function GET(request: NextRequest) {
 
   const client = new NextEngineClient()
   const emailNotifier = new EmailNotifier()
+  const startTime = Date.now()
 
   try {
     console.log('🚀 NextEngine KeepAlive starting...')
-    const startTime = Date.now()
 
     const result = await client.keepAlive()
     const duration = (Date.now() - startTime) / 1000
