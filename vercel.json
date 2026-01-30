@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/nextengine/keepalive",
-      "schedule": "0 */12 * * *"
+      "schedule": "0 3 * * *"
     },
     {
       "path": "/api/monitoring/weekly-report",
