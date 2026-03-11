@@ -29,6 +29,11 @@ export async function POST(request: NextRequest) {
         message = 'System recovery notification sent'
         break
 
+      case 'keepalive-success':
+        sent = await emailNotifier.sendKeepAliveSuccess(false)
+        message = 'Keepalive success notification sent'
+        break
+
       case 'weekly-report':
         sent = await emailNotifier.sendWeeklyHealthReport({
           successfulKeepalives: 14,
@@ -41,9 +46,9 @@ export async function POST(request: NextRequest) {
         break
 
       default:
-        return Response.json({ 
-          success: false, 
-          error: 'Invalid email type. Use: token-expiration, keepalive-failure, system-recovery, weekly-report' 
+        return Response.json({
+          success: false,
+          error: 'Invalid email type. Use: token-expiration, keepalive-failure, system-recovery, keepalive-success, weekly-report'
         }, { status: 400 })
     }
 

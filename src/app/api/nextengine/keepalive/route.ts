@@ -2,17 +2,19 @@ import { NextRequest } from 'next/server'
 import { NextEngineClient } from '@/lib/nextengine-client'
 import { db } from '@/lib/db'
 import { EmailNotifier } from '@/lib/email-notifier'
+import { isBusinessDay } from '@/lib/date-utils'
 
 /**
  * NextEngine キープアライブ
- * 12時間ごとのVercel Cronで実行
+ * 毎日実行されるが、土日祝のみ実際にキープアライブを行う
+ * 平日は価格更新Cronでトークンがリフレッシュされるため不要
  */
 export async function GET(request: NextRequest) {
   // CRON認証（Cronジョブからの呼び出しのみ）
   const cronHeader = request.headers.get('x-vercel-cron')
   const authHeader = request.headers.get('authorization')
   const expectedAuth = process.env.CRON_SECRET
-  
+
   // Cronジョブからの場合のみ認証チェック
   if (cronHeader && expectedAuth && authHeader !== `Bearer ${expectedAuth}`) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
@@ -21,9 +23,23 @@ export async function GET(request: NextRequest) {
   const client = new NextEngineClient()
   const emailNotifier = new EmailNotifier()
   const startTime = Date.now()
+  const today = new Date()
 
   try {
     console.log('🚀 NextEngine KeepAlive starting...')
+
+    // 営業日（平日かつ祝日でない）の場合はスキップ
+    if (isBusinessDay(today)) {
+      console.log('ℹ️ Skipping keepalive: Business day (price update cron handles token refresh)')
+      return Response.json({
+        success: true,
+        skipped: true,
+        reason: 'Business day - price update cron handles token refresh',
+        timestamp: new Date().toISOString()
+      })
+    }
+
+    console.log('📅 Weekend or holiday - executing keepalive')
 
     const result = await client.keepAlive()
     const duration = (Date.now() - startTime) / 1000
@@ -36,7 +52,7 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    // 成功時：システム復旧通知（前回失敗していた場合）
+    // 成功時：成功通知を送信（毎回）
     if (result.success) {
       // 前回の実行が失敗していたかチェック
       const previousLog = await db.keepAliveLog.findFirst({
@@ -45,8 +61,13 @@ export async function GET(request: NextRequest) {
       })
 
       if (previousLog?.status === 'FAILED') {
+        // 復旧通知を送信
         console.log('📧 Sending system recovery notification...')
         await emailNotifier.sendSystemRecovery()
+      } else {
+        // 通常の成功通知を送信
+        console.log('📧 Sending keepalive success notification...')
+        await emailNotifier.sendKeepAliveSuccess(result.refreshed)
       }
     } else {
       // 失敗時：連続失敗回数をカウントして通知

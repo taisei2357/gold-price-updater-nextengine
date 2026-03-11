@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { NextEngineClient } from '@/lib/nextengine-client'
 import { PriceService } from '@/lib/price-service'
 import { db } from '@/lib/db'
+import { EmailNotifier } from '@/lib/email-notifier'
 import type { PriceUpdateResult, ExecutionResult } from '@/types/nextengine'
 
 /**
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
 
   const client = new NextEngineClient()
   const priceService = new PriceService()
+  const emailNotifier = new EmailNotifier()
   const startTime = Date.now()
 
   try {
@@ -166,6 +168,18 @@ export async function GET(request: NextRequest) {
       console.log(`📊 プラットフォーム同期: ${syncResult.success ? '成功' : '失敗'} - ${syncResult.message}`)
     }
 
+    // メール通知を送信
+    if (updatedCount > 0) {
+      console.log('📧 価格更新完了メールを送信中...')
+      await emailNotifier.sendPriceUpdateSuccess({
+        updatedProducts: updatedCount,
+        failedProducts: failedCount,
+        goldRatio,
+        platinumRatio,
+        duration: (Date.now() - startTime) / 1000
+      })
+    }
+
     return Response.json({
       success: true,
       message: '価格更新完了',
@@ -198,6 +212,14 @@ export async function GET(request: NextRequest) {
       })
     } catch (logError) {
       console.error('ログ記録エラー:', logError)
+    }
+
+    // エラーメール通知を送信
+    try {
+      console.log('📧 価格更新失敗メールを送信中...')
+      await emailNotifier.sendPriceUpdateFailure(errorMessage)
+    } catch (emailError) {
+      console.error('メール送信エラー:', emailError)
     }
 
     return Response.json({

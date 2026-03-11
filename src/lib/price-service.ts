@@ -187,7 +187,8 @@ export class PriceService {
    * 商品名フィルタリング
    */
   shouldUpdateProduct(productName: string): boolean {
-    // 「【新品】」で始まり、「K18」「K24」または「Pt」を含む商品
+    // 「【新品】」で始まり、「K18」を含む商品のみ対象
+    // K24とPtは対象外
     // 中古商品は一時的に対象外
     const startsWithTarget = productName.startsWith('【新品】')
                             // productName.startsWith('【新品仕上げ中古】') ||
@@ -195,10 +196,8 @@ export class PriceService {
                             // productName.startsWith('【中古B】') ||
                             // productName.startsWith('【中古C】')
     const containsK18 = productName.includes('K18')
-    const containsK24 = productName.includes('K24')
-    const containsPt = productName.includes('Pt')
-    
-    return startsWithTarget && (containsK18 || containsK24 || containsPt)
+
+    return startsWithTarget && containsK18
   }
 
   /**
@@ -206,11 +205,10 @@ export class PriceService {
    */
   getMetalType(productName: string): 'gold' | 'platinum' | null {
     if (!this.shouldUpdateProduct(productName)) return null
-    
-    if (productName.includes('Pt')) return 'platinum'
+
+    // K18のみ対象（K24とPtは除外）
     if (productName.includes('K18')) return 'gold'
-    if (productName.includes('K24')) return 'gold'
-    
+
     return null
   }
 
